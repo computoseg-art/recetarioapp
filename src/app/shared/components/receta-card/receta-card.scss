@@ -1,0 +1,44 @@
+.receta-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+
+  .card-img {
+    height: 180px;
+    object-fit: cover;
+  }
+
+  mat-card-content {
+    flex-grow: 1;
+    margin-top: 8px;
+  }
+
+  .descripcion {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    color: #555;
+    font-size: 0.9rem;
+  }
+
+  .meta-info {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 12px;
+    font-size: 0.85rem;
+    color: #666;
+
+    span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+
+      mat-icon {
+        font-size: 18px;
+        height: 18px;
+        width: 18px;
+      }
+    }
+  }
+}

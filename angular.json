@@ -31,6 +31,14 @@
             ],
             "styles": [
               "src/styles.scss"
+            ],
+            "allowedCommonJsDependencies": [
+              "firebase",
+              "@angular/fire",
+              "@angular/fire/app",
+              "@angular/fire/firestore",
+              "@angular/fire/auth",
+              "@angular/fire/storage"
             ]
           },
           "configurations": {

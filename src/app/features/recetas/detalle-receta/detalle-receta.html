@@ -1,0 +1,72 @@
+<div class="detalle-container">
+  <button mat-button routerLink="/" class="btn-volver">
+    <mat-icon>arrow_back</mat-icon> Volver a recetas
+  </button>
+
+  @if (receta$ | async; as receta) {
+    <article class="receta-detalle">
+      <div class="hero-image">
+        <img [src]="receta.imagenUrl || 'https://placehold.co/800x400?text=Sin+Imagen'" [alt]="receta.titulo">
+      </div>
+
+      <header class="header">
+        <div class="titulo-acciones">
+          <h1>{{ receta.titulo }}</h1>
+          <!-- Botón de Editar -->
+          <a mat-icon-button [routerLink]="['/editar', receta.id]" title="Editar receta">
+            <mat-icon>edit</mat-icon>
+          </a>
+          <button mat-icon-button color="warn" (click)="eliminarReceta(receta.id)" title="Eliminar receta">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </div>
+
+        <div class="badges">
+          @if (receta.categoria) {
+            <mat-chip-option color="accent" selected>{{ receta.categoria }}</mat-chip-option>
+          }
+        </div>
+
+        <div class="meta-data">
+          @if (receta.tiempoPreparacionMinutos) {
+            <span><mat-icon>schedule</mat-icon> {{ receta.tiempoPreparacionMinutos }} minutos</span>
+          }
+          @if (receta.porciones) {
+            <span><mat-icon>restaurant</mat-icon> {{ receta.porciones }} porciones</span>
+          }
+        </div>
+      </header>
+
+      <mat-divider></mat-divider>
+
+      <p class="descripcion">{{ receta.descripcion }}</p>
+
+<div class="contenido-grid">
+  @if (receta.ingredientes && receta.ingredientes.length > 0) {
+    <section class="seccion">
+      <h2>Ingredientes</h2>
+      <ul class="lista-ingredientes">
+        @for (ingrediente of receta.ingredientes; track $index) {
+          <li>
+            <mat-icon class="check-icon">check_circle_outline</mat-icon>
+            {{ obtenerTextoIngrediente(ingrediente) }}
+          </li>
+        }
+      </ul>
+    </section>
+  }
+
+  @if (receta.instrucciones) {
+    <section class="seccion">
+      <h2>Instrucciones</h2>
+      <p class="instrucciones-texto">{{ receta.instrucciones }}</p>
+    </section>
+  }
+</div>
+    </article>
+  } @else {
+    <div class="spinner-container">
+      <mat-spinner></mat-spinner>
+    </div>
+  }
+</div>

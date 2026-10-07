@@ -1,0 +1,95 @@
+<div class="container">
+  <button mat-button routerLink="/" class="btn-volver">
+    <mat-icon>arrow_back</mat-icon> Cancelar
+  </button>
+
+  @if (cargando) {
+    <div class="spinner-container">
+      <mat-spinner></mat-spinner>
+    </div>
+  } @else {
+    <mat-card class="form-card">
+      <mat-card-header>
+        <mat-card-title>Editar Receta</mat-card-title>
+      </mat-card-header>
+
+      <mat-card-content>
+        <form [formGroup]="recetaForm" (ngSubmit)="actualizarReceta()">
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Título de la receta</mat-label>
+            <input matInput formControlName="titulo" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Descripción breve</mat-label>
+            <textarea matInput formControlName="descripcion" rows="2"></textarea>
+          </mat-form-field>
+
+          <div class="form-row">
+            <mat-form-field appearance="outline">
+              <mat-label>Categoría</mat-label>
+              <mat-select formControlName="categoria">
+                @for (cat of categorias; track cat) {
+                  <mat-option [value]="cat">{{ cat }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Tiempo (min)</mat-label>
+              <input matInput type="number" formControlName="tiempoPreparacionMinutos" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Porciones</mat-label>
+              <input matInput type="number" formControlName="porciones" />
+            </mat-form-field>
+          </div>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>URL de la imagen</mat-label>
+            <input matInput formControlName="imagenUrl" />
+          </mat-form-field>
+
+          <div class="ingredientes-container" formArrayName="ingredientes">
+            <h3>Ingredientes</h3>
+            @for (control of ingredientes.controls; track $index) {
+              <div [formGroupName]="$index" class="ingrediente-item">
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Ingrediente {{ $index + 1 }}</mat-label>
+                  <input matInput formControlName="texto" />
+                </mat-form-field>
+
+                <button
+                  type="button"
+                  mat-icon-button
+                  color="warn"
+                  (click)="eliminarIngrediente($index)"
+                  [disabled]="ingredientes.length === 1">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+            }
+
+            <button type="button" mat-stroked-button color="primary" (click)="agregarIngrediente()">
+              <mat-icon>add</mat-icon> Añadir ingrediente
+            </button>
+          </div>
+
+          <mat-form-field appearance="outline" class="full-width margin-top">
+            <mat-label>Instrucciones</mat-label>
+            <textarea matInput formControlName="instrucciones" rows="5"></textarea>
+          </mat-form-field>
+
+          <div class="actions">
+            <button mat-flat-button color="primary" type="submit">
+              Guardar Cambios
+            </button>
+          </div>
+
+        </form>
+      </mat-card-content>
+    </mat-card>
+  }
+</div>

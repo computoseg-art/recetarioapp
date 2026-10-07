@@ -1,0 +1,121 @@
+.detalle-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 16px;
+
+  .btn-volver {
+    margin-bottom: 16px;
+  }
+
+  .receta-detalle {
+    background: #ffffff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+
+    .hero-image {
+      width: 100%;
+      height: 350px;
+
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+    }
+
+    .header {
+      padding: 24px;
+
+      .titulo-acciones {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        h1 {
+          margin: 0;
+          font-size: 2rem;
+          font-weight: 700;
+        }
+      }
+
+      .badges {
+        margin-top: 12px;
+      }
+
+      .meta-data {
+        display: flex;
+        gap: 24px;
+        margin-top: 16px;
+        color: #666;
+
+        span {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+      }
+    }
+
+    .descripcion {
+      padding: 24px;
+      margin: 0;
+      font-size: 1.1rem;
+      line-height: 1.6;
+      color: #444;
+    }
+
+    .contenido-grid {
+      padding: 0 24px 32px 24px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 32px;
+
+      @media (min-width: 768px) {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .seccion {
+        h2 {
+          font-size: 1.3rem;
+          border-bottom: 2px solid #e0e0e0;
+          padding-bottom: 8px;
+          margin-bottom: 16px;
+        }
+
+        .lista-ingredientes {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+
+          li {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            color: #333;
+
+            .check-icon {
+              font-size: 20px;
+              height: 20px;
+              width: 20px;
+              color: #4caf50;
+            }
+          }
+        }
+
+        .instrucciones-texto {
+          white-space: pre-line;
+          line-height: 1.6;
+          color: #333;
+        }
+      }
+    }
+  }
+}
+
+.spinner-container {
+  display: flex;
+  justify-content: center;
+  padding: 60px;
+}

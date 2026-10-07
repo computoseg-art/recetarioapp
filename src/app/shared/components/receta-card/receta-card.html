@@ -1,0 +1,31 @@
+<mat-card class="receta-card" appearance="outlined">
+  <img
+    mat-card-image
+    [src]="receta.imagenUrl || 'https://placehold.co/600x400?text=Sin+Imagen'"
+    [alt]="receta.titulo"
+    class="card-img"
+  />
+  <mat-card-header>
+    <mat-card-title>{{ receta.titulo }}</mat-card-title>
+    <mat-card-subtitle>
+      <mat-chip-option color="accent" selected>{{ receta.categoria }}</mat-chip-option>
+    </mat-card-subtitle>
+  </mat-card-header>
+
+  <mat-card-content>
+    <p class="descripcion">{{ receta.descripcion }}</p>
+    <div class="meta-info">
+      <span><mat-icon>schedule</mat-icon> {{ receta.tiempoPreparacionMinutos }} min</span>
+      <span><mat-icon>restaurant</mat-icon> {{ receta.porciones }} porciones</span>
+    </div>
+  </mat-card-content>
+
+  <mat-card-actions align="end">
+    <button mat-icon-button color="warn" aria-label="Favorito">
+      <mat-icon>favorite_border</mat-icon>
+    </button>
+    <button mat-button color="primary" [routerLink]="['/receta', receta.id]">
+      VER RECETA
+    </button>
+  </mat-card-actions>
+</mat-card>

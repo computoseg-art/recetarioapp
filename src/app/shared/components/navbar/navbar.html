@@ -1,0 +1,66 @@
+<!-- Toolbar Superior (para pantallas medianas y grandes) -->
+<mat-toolbar color="primary" class="desktop-toolbar">
+  <span class="logo" routerLink="/">🍳 Recetario</span>
+  <span class="spacer"></span>
+
+  <nav class="desktop-nav">
+    <a mat-button routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">
+      <mat-icon>restaurant_menu</mat-icon> Recetas
+    </a>
+
+    @if (user$ | async; as user) {
+      <a mat-button routerLink="/favoritos" routerLinkActive="active">
+        <mat-icon>favorite</mat-icon> Favoritos
+      </a>
+      <a mat-button routerLink="/crear-receta" routerLinkActive="active">
+        <mat-icon>add_circle</mat-icon> Nueva Receta
+      </a>
+
+      <!-- Menú de Usuario Logueado -->
+      <button mat-button [matMenuTriggerFor]="userMenu">
+        <mat-icon>account_circle</mat-icon> {{ user.displayName || 'Perfil' }}
+      </button>
+      <mat-menu #userMenu="matMenu">
+        <a mat-menu-item routerLink="/perfil">
+          <mat-icon>person</mat-icon> Ver Perfil
+        </a>
+        <button mat-menu-item (click)="logout()">
+          <mat-icon>exit_to_app</mat-icon> Cerrar Sesión
+        </button>
+      </mat-menu>
+    } @else {
+      <!-- Botón cuando NO está logueado -->
+      <button mat-flat-button color="accent" (click)="loginConGoogle()">
+        <mat-icon>login</mat-icon> Iniciar Sesión
+      </button>
+    }
+  </nav>
+</mat-toolbar>
+
+<!-- Bottom Navigation Bar (fija abajo solo para móviles) -->
+<nav class="mobile-bottom-nav">
+  <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" class="nav-item">
+    <mat-icon>restaurant_menu</mat-icon>
+    <span>Recetas</span>
+  </a>
+
+  @if (user$ | async) {
+    <a routerLink="/favoritos" routerLinkActive="active" class="nav-item">
+      <mat-icon>favorite</mat-icon>
+      <span>Favoritos</span>
+    </a>
+    <a routerLink="/crear-receta" routerLinkActive="active" class="nav-item">
+      <mat-icon>add_circle</mat-icon>
+      <span>Crear</span>
+    </a>
+    <a routerLink="/perfil" routerLinkActive="active" class="nav-item">
+      <mat-icon>person</mat-icon>
+      <span>Perfil</span>
+    </a>
+  } @else {
+    <a (click)="loginConGoogle()" class="nav-item">
+      <mat-icon>login</mat-icon>
+      <span>Ingresar</span>
+    </a>
+  }
+</nav>
