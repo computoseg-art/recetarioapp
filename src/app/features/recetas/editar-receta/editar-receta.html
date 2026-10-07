@@ -81,6 +81,12 @@
             <mat-label>Instrucciones</mat-label>
             <textarea matInput formControlName="instrucciones" rows="5"></textarea>
           </mat-form-field>
+          <!-- Opción de Compartir / Hacer Pública -->
+          <div class="public-toggle-section" style="margin: 1.5rem 0;">
+            <mat-slide-toggle formControlName="esPublica" color="primary">
+              Hacer pública esta receta (visible en la sección general y de exploración)
+            </mat-slide-toggle>
+          </div>
 
           <div class="actions">
             <button mat-flat-button color="primary" type="submit">

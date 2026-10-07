@@ -4,9 +4,8 @@ import {
   collection,
   doc,
   getDoc,
-  addDoc,
+  setDoc,
   deleteDoc,
-  updateDoc,
   onSnapshot,
   Unsubscribe
 } from '@angular/fire/firestore';
@@ -20,27 +19,23 @@ export class RecetaService {
   private readonly firestore: Firestore = inject(Firestore);
   private readonly injector: Injector = inject(Injector);
 
-  // Obtiene las recetas públicas en tiempo real
+  // Obtener las recetas del feed público global
   getRecetasPublicas(): Observable<Receta[]> {
     return new Observable<Receta[]>(subscriber => {
       let unsubscribe: Unsubscribe;
 
       runInInjectionContext(this.injector, () => {
-        const recetasRef = collection(this.firestore, 'recetas');
+        const publicasRef = collection(this.firestore, 'recetas_publicas');
 
         unsubscribe = onSnapshot(
-          recetasRef,
+          publicasRef,
           snapshot => {
             const recetas = snapshot.docs.map(doc => ({
               id: doc.id,
               ...doc.data()
             })) as Receta[];
 
-            const publicas = recetas.filter(
-              r => r.esPublica === true || r.esPublica === undefined
-            );
-
-            subscriber.next(publicas);
+            subscriber.next(recetas);
           },
           error => subscriber.error(error)
         );
@@ -52,24 +47,23 @@ export class RecetaService {
     });
   }
 
-  // Obtiene las recetas del usuario logueado en tiempo real
+  // Obtener las recetas exclusivas de la subcolección del usuario
   getMisRecetas(uid: string): Observable<Receta[]> {
     return new Observable<Receta[]>(subscriber => {
       let unsubscribe: Unsubscribe;
 
       runInInjectionContext(this.injector, () => {
-        const recetasRef = collection(this.firestore, 'recetas');
+        const misRecetasRef = collection(this.firestore, 'usuarios', uid, 'recetas');
 
         unsubscribe = onSnapshot(
-          recetasRef,
+          misRecetasRef,
           snapshot => {
             const recetas = snapshot.docs.map(doc => ({
               id: doc.id,
               ...doc.data()
             })) as Receta[];
 
-            const misRecetas = recetas.filter(r => r.usuarioId === uid);
-            subscriber.next(misRecetas);
+            subscriber.next(recetas);
           },
           error => subscriber.error(error)
         );
@@ -81,36 +75,74 @@ export class RecetaService {
     });
   }
 
-  async getRecetaPorId(id: string): Promise<Receta> {
-    const recetaDocRef = doc(this.firestore, 'recetas', id);
-    const snapshot = await getDoc(recetaDocRef);
+  // Obtener receta por ID (busca primero en recetas_publicas y luego en la subcolección del usuario si se pasa su UID)
+  async getRecetaPorId(id: string, uid?: string): Promise<Receta> {
+    // 1. Intentar buscar en recetas_publicas
+    const publicaRef = doc(this.firestore, 'recetas_publicas', id);
+    const publicaSnap = await getDoc(publicaRef);
 
-    if (!snapshot.exists()) {
-      throw new Error('La receta no existe');
+    if (publicaSnap.exists()) {
+      return { id: publicaSnap.id, ...publicaSnap.data() } as Receta;
     }
 
-    const data = snapshot.data();
-    return {
-      id: snapshot.id,
-      ...data,
-      instrucciones:
-        data['instrucciones'] ||
-        (Array.isArray(data['pasos']) ? data['pasos'].join('\n') : '')
-    } as Receta;
+    // 2. Si no es pública y tenemos el UID del usuario logueado, buscar en su subcolección
+    if (uid) {
+      const privadaRef = doc(this.firestore, 'usuarios', uid, 'recetas', id);
+      const privadaSnap = await getDoc(privadaRef);
+
+      if (privadaSnap.exists()) {
+        return { id: privadaSnap.id, ...privadaSnap.data() } as Receta;
+      }
+    }
+
+    throw new Error('La receta no existe o no tienes permisos para verla.');
   }
 
-  agregarReceta(receta: Receta) {
-    const recetasRef = collection(this.firestore, 'recetas');
-    return addDoc(recetasRef, receta);
+  // Guardar nueva receta
+  agregarReceta(receta: Receta, uid: string) {
+    return runInInjectionContext(this.injector, async () => {
+      const nuevaRecetaRef = doc(collection(this.firestore, 'usuarios', uid, 'recetas'));
+      const idGenerado = nuevaRecetaRef.id;
+
+      const datosReceta: Receta = {
+        ...receta,
+        id: idGenerado,
+        usuarioId: uid
+      };
+
+      await setDoc(nuevaRecetaRef, datosReceta);
+
+      if (receta.esPublica) {
+        const publicaRef = doc(this.firestore, 'recetas_publicas', idGenerado);
+        await setDoc(publicaRef, datosReceta);
+      }
+    });
   }
 
-  actualizarReceta(id: string, receta: Partial<Receta>) {
-    const recetaDocRef = doc(this.firestore, 'recetas', id);
-    return updateDoc(recetaDocRef, receta);
+  // Actualizar receta
+  actualizarReceta(id: string, receta: Partial<Receta>, uid: string) {
+    return runInInjectionContext(this.injector, async () => {
+      const recetaRef = doc(this.firestore, 'usuarios', uid, 'recetas', id);
+      const publicaRef = doc(this.firestore, 'recetas_publicas', id);
+
+      await setDoc(recetaRef, receta, { merge: true });
+
+      if (receta.esPublica === true) {
+        await setDoc(publicaRef, receta, { merge: true });
+      } else if (receta.esPublica === false) {
+        await deleteDoc(publicaRef).catch(() => {});
+      }
+    });
   }
 
-  eliminarReceta(id: string) {
-    const recetaDocRef = doc(this.firestore, 'recetas', id);
-    return deleteDoc(recetaDocRef);
+  // Eliminar receta
+  eliminarReceta(id: string, uid: string) {
+    return runInInjectionContext(this.injector, async () => {
+      const recetaRef = doc(this.firestore, 'usuarios', uid, 'recetas', id);
+      const publicaRef = doc(this.firestore, 'recetas_publicas', id);
+
+      await deleteDoc(recetaRef);
+      await deleteDoc(publicaRef).catch(() => {});
+    });
   }
 }

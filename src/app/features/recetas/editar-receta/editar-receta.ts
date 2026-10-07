@@ -2,8 +2,10 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { take } from 'rxjs/operators';
 
 import { RecetaService } from '../../../core/services/receta';
+import { AuthService } from '../../../core/services/auth';
 import { Receta } from '../../../core/models/receta';
 
 import { MatCardModule } from '@angular/material/card';
@@ -12,6 +14,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 @Component({
@@ -27,6 +30,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
     MatSelectModule,
     MatButtonModule,
     MatIconModule,
+    MatSlideToggleModule,
     MatProgressSpinnerModule
   ],
   templateUrl: './editar-receta.html',
@@ -37,6 +41,7 @@ export class EditarReceta implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private recetaService = inject(RecetaService);
+  private authService = inject(AuthService);
 
   recetaId: string = '';
   cargando: boolean = true;
@@ -50,6 +55,7 @@ export class EditarReceta implements OnInit {
     porciones: [2, [Validators.required, Validators.min(1)]],
     imagenUrl: [''],
     instrucciones: ['', Validators.required],
+    esPublica: [false],
     ingredientes: this.fb.array([])
   });
 
@@ -58,47 +64,49 @@ export class EditarReceta implements OnInit {
   }
 
   ngOnInit(): void {
-    const id = this.route.snapshot.paramMap.get('id');
-    if (id) {
-      this.recetaId = id;
-      this.cargarReceta(id);
+    this.recetaId = this.route.snapshot.paramMap.get('id') || '';
+
+    if (this.recetaId) {
+      this.authService.user$.pipe(take(1)).subscribe(user => {
+        this.recetaService.getRecetaPorId(this.recetaId, user?.uid)
+          .then((receta: Receta) => {
+            this.recetaForm.patchValue({
+              titulo: receta.titulo,
+              descripcion: receta.descripcion,
+              categoria: receta.categoria,
+              tiempoPreparacionMinutos: receta.tiempoPreparacionMinutos,
+              porciones: receta.porciones,
+              imagenUrl: receta.imagenUrl,
+              instrucciones: receta.instrucciones,
+              esPublica: receta.esPublica
+            });
+
+            this.ingredientes.clear();
+            if (receta.ingredientes && Array.isArray(receta.ingredientes)) {
+              receta.ingredientes.forEach((ing: unknown) => {
+                const textoIng = typeof ing === 'string'
+                  ? ing
+                  : (ing && typeof ing === 'object' && 'nombre' in ing) ? (ing as { nombre: string }).nombre : '';
+                this.ingredientes.push(this.fb.group({ texto: [textoIng, Validators.required] }));
+              });
+            }
+
+            this.cargando = false;
+          })
+          .catch((error: unknown) => {
+            console.error('Error al cargar receta:', error);
+            this.cargando = false;
+            this.router.navigate(['/']);
+          });
+      });
     } else {
-      this.router.navigate(['/']);
+      this.cargando = false;
     }
   }
 
-  cargarReceta(id: string): void {
-    this.recetaService.getRecetaPorId(id).then(receta => {
-      this.recetaForm.patchValue({
-        titulo: receta.titulo,
-        descripcion: receta.descripcion,
-        categoria: receta.categoria,
-        tiempoPreparacionMinutos: receta.tiempoPreparacionMinutos,
-        porciones: receta.porciones,
-        imagenUrl: receta.imagenUrl,
-        instrucciones: receta.instrucciones
-      });
-
-      // Mapear ingredientes existentes al FormArray
-      if (receta.ingredientes && receta.ingredientes.length > 0) {
-        receta.ingredientes.forEach(ing => {
-          const textoIngrediente = typeof ing === 'string' ? ing : (ing as any).nombre || '';
-          this.ingredientes.push(this.crearIngredienteControl(textoIngrediente));
-        });
-      } else {
-        this.agregarIngrediente();
-      }
-
-      this.cargando = false;
-    }).catch(error => {
-      console.error('Error al cargar la receta:', error);
-      this.router.navigate(['/']);
-    });
-  }
-
-  crearIngredienteControl(valor: string = ''): FormGroup {
+  crearIngredienteControl(): FormGroup {
     return this.fb.group({
-      texto: [valor, Validators.required]
+      texto: ['', Validators.required]
     });
   }
 
@@ -118,25 +126,29 @@ export class EditarReceta implements OnInit {
       return;
     }
 
-    const formValue = this.recetaForm.value;
+    this.authService.user$.pipe(take(1)).subscribe(user => {
+      if (!user) return;
 
-    const listaIngredientes: string[] = formValue.ingredientes
-      .map((i: { texto: string }) => i.texto ? i.texto.trim() : '')
-      .filter((texto: string) => texto.length > 0);
+      const formValue = this.recetaForm.value;
+      const listaIngredientes: string[] = formValue.ingredientes
+        .map((i: { texto: string }) => i.texto ? i.texto.trim() : '')
+        .filter((texto: string) => texto.length > 0);
 
-    const recetaActualizada: Partial<Receta> = {
-      titulo: formValue.titulo,
-      descripcion: formValue.descripcion,
-      categoria: formValue.categoria,
-      tiempoPreparacionMinutos: Number(formValue.tiempoPreparacionMinutos),
-      porciones: Number(formValue.porciones),
-      imagenUrl: formValue.imagenUrl || 'https://placehold.co/600x400?text=Sin+Imagen',
-      instrucciones: formValue.instrucciones,
-      ingredientes: listaIngredientes
-    };
+      const recetaActualizada: Partial<Receta> = {
+        titulo: formValue.titulo,
+        descripcion: formValue.descripcion,
+        categoria: formValue.categoria,
+        tiempoPreparacionMinutos: Number(formValue.tiempoPreparacionMinutos),
+        porciones: Number(formValue.porciones),
+        imagenUrl: formValue.imagenUrl,
+        instrucciones: formValue.instrucciones,
+        ingredientes: listaIngredientes,
+        esPublica: !!formValue.esPublica
+      };
 
-    this.recetaService.actualizarReceta(this.recetaId, recetaActualizada).then(() => {
-      this.router.navigate(['/receta', this.recetaId]);
+      this.recetaService.actualizarReceta(this.recetaId, recetaActualizada, user.uid).then(() => {
+        this.router.navigate(['/detalle', this.recetaId]);
+      });
     });
   }
 }

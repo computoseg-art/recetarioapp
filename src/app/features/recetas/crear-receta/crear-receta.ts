@@ -75,39 +75,40 @@ export class CrearReceta {
   }
 
   guardarReceta(): void {
-    if (this.recetaForm.invalid) {
-      this.recetaForm.markAllAsTouched();
+  if (this.recetaForm.invalid) {
+    this.recetaForm.markAllAsTouched();
+    return;
+  }
+
+  this.authService.user$.pipe(take(1)).subscribe(user => {
+    if (!user) {
+      alert('Debes iniciar sesión para crear y guardar tus recetas.');
       return;
     }
 
-    this.authService.user$.pipe(take(1)).subscribe(user => {
-      if (!user) {
-        alert('Debes iniciar sesión para crear y guardar tus recetas.');
-        return;
-      }
+    const formValue = this.recetaForm.value;
 
-      const formValue = this.recetaForm.value;
+    const listaIngredientes: string[] = formValue.ingredientes
+      .map((i: { texto: string }) => i.texto ? i.texto.trim() : '')
+      .filter((texto: string) => texto.length > 0);
 
-      const listaIngredientes: string[] = formValue.ingredientes
-        .map((i: { texto: string }) => i.texto ? i.texto.trim() : '')
-        .filter((texto: string) => texto.length > 0);
+    const nuevaReceta: Receta = {
+      titulo: formValue.titulo,
+      descripcion: formValue.descripcion,
+      categoria: formValue.categoria,
+      tiempoPreparacionMinutos: Number(formValue.tiempoPreparacionMinutos),
+      porciones: Number(formValue.porciones),
+      imagenUrl: formValue.imagenUrl || 'https://placehold.co/600x400?text=Sin+Imagen',
+      instrucciones: formValue.instrucciones,
+      ingredientes: listaIngredientes,
+      usuarioId: user.uid,
+      esPublica: !!formValue.esPublica
+    };
 
-      const nuevaReceta: Receta = {
-        titulo: formValue.titulo,
-        descripcion: formValue.descripcion,
-        categoria: formValue.categoria,
-        tiempoPreparacionMinutos: Number(formValue.tiempoPreparacionMinutos),
-        porciones: Number(formValue.porciones),
-        imagenUrl: formValue.imagenUrl || 'https://placehold.co/600x400?text=Sin+Imagen',
-        instrucciones: formValue.instrucciones,
-        ingredientes: listaIngredientes,
-        usuarioId: user.uid, // Asigna el UID del creador
-        esPublica: !!formValue.esPublica // Define la visibilidad
-      };
-
-      this.recetaService.agregarReceta(nuevaReceta).then(() => {
-        this.router.navigate(['/']);
-      });
+    // Pasa la receta y el UID del usuario
+    this.recetaService.agregarReceta(nuevaReceta, user.uid).then(() => {
+      this.router.navigate(['/']);
     });
-  }
+  });
+}
 }

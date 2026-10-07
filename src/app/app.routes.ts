@@ -14,8 +14,12 @@ export const routes: Routes = [
     loadComponent: () => import('./features/recetas/detalle-receta/detalle-receta').then(m => m.DetalleReceta)
   },
   {
-    path: 'editar/:id',
+    path: 'editar-receta/:id',
     loadComponent: () => import('./features/recetas/editar-receta/editar-receta').then(m => m.EditarReceta)
+  },
+  {
+    path: 'mis-recetas',
+    loadComponent: () => import('./features/recetas/mis-recetas/mis-recetas').then(m => m.MisRecetas)
   },
   {
     path: '**',

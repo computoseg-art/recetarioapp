@@ -1,8 +1,9 @@
 <mat-card class="receta-card" appearance="outlined">
   <img
     mat-card-image
-    [src]="receta.imagenUrl || 'https://placehold.co/600x400?text=Sin+Imagen'"
+    [src]="imagenUrlSanitizada"
     [alt]="receta.titulo"
+    (error)="manejarErrorImagen($event)"
     class="card-img"
   />
   <mat-card-header>
