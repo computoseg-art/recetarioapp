@@ -13,7 +13,7 @@
         <div class="titulo-acciones">
           <h1>{{ receta.titulo }}</h1>
           <!-- Botón de Editar -->
-          <a mat-icon-button [routerLink]="['/editar', receta.id]" title="Editar receta">
+          <a mat-icon-button [routerLink]="['/editar-receta', receta.id]" title="Editar receta">
             <mat-icon>edit</mat-icon>
           </a>
           <button mat-icon-button color="warn" (click)="eliminarReceta(receta.id)" title="Eliminar receta">

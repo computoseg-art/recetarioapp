@@ -75,27 +75,37 @@ export class RecetaService {
     });
   }
 
-  // Obtener receta por ID (busca primero en recetas_publicas y luego en la subcolección del usuario si se pasa su UID)
-  async getRecetaPorId(id: string, uid?: string): Promise<Receta> {
-    // 1. Intentar buscar en recetas_publicas
-    const publicaRef = doc(this.firestore, 'recetas_publicas', id);
-    const publicaSnap = await getDoc(publicaRef);
+async getRecetaPorId(id: string, uid?: string): Promise<Receta> {
+    console.log('>>> [Servicio] getRecetaPorId llamado con ID:', id, 'UID:', uid);
 
-    if (publicaSnap.exists()) {
-      return { id: publicaSnap.id, ...publicaSnap.data() } as Receta;
-    }
+    return runInInjectionContext(this.injector, async () => {
+      try {
+        if (uid) {
+          console.log('>>> [Servicio] Buscando en subcolección privada...');
+          const privadaRef = doc(this.firestore, 'usuarios', uid, 'recetas', id);
+          const privadaSnap = await getDoc(privadaRef);
 
-    // 2. Si no es pública y tenemos el UID del usuario logueado, buscar en su subcolección
-    if (uid) {
-      const privadaRef = doc(this.firestore, 'usuarios', uid, 'recetas', id);
-      const privadaSnap = await getDoc(privadaRef);
+          if (privadaSnap.exists()) {
+            console.log('>>> [Servicio] ¡Encontrada en privada!');
+            return { id: privadaSnap.id, ...privadaSnap.data() } as Receta;
+          }
+        }
 
-      if (privadaSnap.exists()) {
-        return { id: privadaSnap.id, ...privadaSnap.data() } as Receta;
+        console.log('>>> [Servicio] Buscando en recetas_publicas...');
+        const publicaRef = doc(this.firestore, 'recetas_publicas', id);
+        const publicaSnap = await getDoc(publicaRef);
+
+        if (publicaSnap.exists()) {
+          console.log('>>> [Servicio] ¡Encontrada en pública!');
+          return { id: publicaSnap.id, ...publicaSnap.data() } as Receta;
+        }
+
+        throw new Error('La receta no existe en ninguna colección.');
+      } catch (err) {
+        console.error('>>> [Servicio] Error atrapado en getRecetaPorId:', err);
+        throw err;
       }
-    }
-
-    throw new Error('La receta no existe o no tienes permisos para verla.');
+    });
   }
 
   // Guardar nueva receta

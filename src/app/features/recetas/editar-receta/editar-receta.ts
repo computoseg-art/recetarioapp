@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -37,11 +37,13 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
   styleUrl: './editar-receta.scss'
 })
 export class EditarReceta implements OnInit {
+  private cdr = inject(ChangeDetectorRef);
   private fb = inject(FormBuilder);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private recetaService = inject(RecetaService);
   private authService = inject(AuthService);
+
 
   recetaId: string = '';
   cargando: boolean = true;
@@ -63,13 +65,26 @@ export class EditarReceta implements OnInit {
     return this.recetaForm.get('ingredientes') as FormArray;
   }
 
-  ngOnInit(): void {
+ngOnInit(): void {
     this.recetaId = this.route.snapshot.paramMap.get('id') || '';
+    console.log('>>> [Componente] ngOnInit iniciado. ID de ruta:', this.recetaId);
 
-    if (this.recetaId) {
-      this.authService.user$.pipe(take(1)).subscribe(user => {
+    if (!this.recetaId) {
+      console.log('>>> [Componente] No hay ID, redirigiendo...');
+      this.cargando = false;
+      this.router.navigate(['/']);
+      return;
+    }
+
+    console.log('>>> [Componente] Suscribiéndose a authService.user$...');
+    this.authService.user$.pipe(take(1)).subscribe({
+      next: (user) => {
+        console.log('>>> [Componente] Usuario emitido por authService:', user?.uid);
+
         this.recetaService.getRecetaPorId(this.recetaId, user?.uid)
           .then((receta: Receta) => {
+            console.log('>>> [Componente] Receta obtenida con éxito:', receta);
+
             this.recetaForm.patchValue({
               titulo: receta.titulo,
               descripcion: receta.descripcion,
@@ -90,19 +105,26 @@ export class EditarReceta implements OnInit {
                 this.ingredientes.push(this.fb.group({ texto: [textoIng, Validators.required] }));
               });
             }
-
-            this.cargando = false;
           })
           .catch((error: unknown) => {
-            console.error('Error al cargar receta:', error);
-            this.cargando = false;
+            console.error('>>> [Componente] Error en promesa getRecetaPorId:', error);
+            alert('No se pudo encontrar la receta.');
             this.router.navigate(['/']);
+          })
+      .finally(() => {
+            console.log('>>> [Componente] Bloque finally ejecutado. Apagando spinner.');
+            this.cargando = false;
+            this.cdr.detectChanges(); // Fuerza a Angular a repintar la vista y ocultar el spinner
           });
-      });
-    } else {
-      this.cargando = false;
-    }
+      },
+      error: (err) => {
+        console.error('>>> [Componente] Error en observable de usuario:', err);
+        this.cargando = false;
+        this.router.navigate(['/']);
+      }
+    });
   }
+
 
   crearIngredienteControl(): FormGroup {
     return this.fb.group({
