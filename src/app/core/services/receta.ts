@@ -6,6 +6,7 @@ import {
   getDoc,
   setDoc,
   deleteDoc,
+  updateDoc,
   onSnapshot,
   Unsubscribe
 } from '@angular/fire/firestore';
@@ -130,17 +131,41 @@ async getRecetaPorId(id: string, uid?: string): Promise<Receta> {
   }
 
   // Actualizar receta
-  actualizarReceta(id: string, receta: Partial<Receta>, uid: string) {
+async actualizarReceta(id: string, recetaData: Partial<Receta>, uid: string): Promise<void> {
     return runInInjectionContext(this.injector, async () => {
-      const recetaRef = doc(this.firestore, 'usuarios', uid, 'recetas', id);
-      const publicaRef = doc(this.firestore, 'recetas_publicas', id);
+      try {
+        // 1. Referencia a la receta en la subcolección privada del usuario
+        const privadaRef = doc(this.firestore, 'usuarios', uid, 'recetas', id);
 
-      await setDoc(recetaRef, receta, { merge: true });
+        // Actualizamos los datos privados
+        await updateDoc(privadaRef, {
+          ...recetaData,
+          actualizadoEn: new Date()
+        });
 
-      if (receta.esPublica === true) {
-        await setDoc(publicaRef, receta, { merge: true });
-      } else if (receta.esPublica === false) {
-        await deleteDoc(publicaRef).catch(() => {});
+        // 2. Manejo de visibilidad pública
+        const publicaRef = doc(this.firestore, 'recetas_publicas', id);
+        const publicaSnap = await getDoc(publicaRef);
+
+        if (recetaData.esPublica) {
+          // Si ahora es pública, la guardamos o actualizamos en 'recetas_publicas'
+          await setDoc(publicaRef, {
+            id,
+            ...recetaData,
+            uidPropietario: uid,
+            actualizadoEn: new Date()
+          }, { merge: true });
+        } else {
+          // Si el usuario la desmarcó como pública, la eliminamos de 'recetas_publicas'
+          if (publicaSnap.exists()) {
+            await deleteDoc(publicaRef);
+          }
+        }
+
+        console.log('Receta actualizada y sincronizada correctamente.');
+      } catch (err) {
+        console.error('Error al actualizar la receta en Firestore:', err);
+        throw err;
       }
     });
   }
