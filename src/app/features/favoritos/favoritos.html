@@ -1,0 +1,27 @@
+<div class="favoritos-container" style="padding: 24px; max-width: 1200px; margin: 0 auto;">
+      <h2 style="margin-bottom: 24px;">❤️ Mis Recetas Favoritas</h2>
+
+      <ng-container *ngIf="user$ | async as user; else noLogueado">
+        <ng-container *ngIf="favoritos$ | async as recetas; else cargando">
+          <div *ngIf="recetas.length > 0; else sinFavoritos" class="grid-recetas" style="display: flex; gap: 20px; flex-wrap: wrap;">
+            <app-receta-card
+              *ngFor="let receta of recetas"
+              [receta]="receta"
+              [usuarioActualId]="user.uid">
+            </app-receta-card>
+          </div>
+        </ng-container>
+      </ng-container>
+
+      <ng-template #sinFavoritos>
+        <p>Aún no has guardado ninguna receta en tus favoritos.</p>
+      </ng-template>
+
+      <ng-template #noLogueado>
+        <p>Debes iniciar sesión para ver tu lista de favoritos.</p>
+      </ng-template>
+
+      <ng-template #cargando>
+        <p>Cargando tus favoritos...</p>
+      </ng-template>
+    </div>

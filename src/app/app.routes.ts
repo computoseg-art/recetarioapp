@@ -22,6 +22,14 @@ export const routes: Routes = [
     loadComponent: () => import('./features/recetas/mis-recetas/mis-recetas').then(m => m.MisRecetas)
   },
   {
+    path: 'login',
+    loadComponent: () => import('./features/auth/login/login').then(m => m.LoginComponent)
+  },
+  {
+    path: 'favoritos',
+    loadComponent: () => import('./features/favoritos/favoritos').then(m => m.FavoritosComponent)
+  },
+  {
     path: '**',
     redirectTo: ''
   }

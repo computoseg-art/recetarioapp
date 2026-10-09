@@ -8,8 +8,14 @@ import {
   deleteDoc,
   updateDoc,
   onSnapshot,
-  Unsubscribe
+  Unsubscribe,
+  arrayUnion,
+  arrayRemove,
+  collectionData,
+  query,
+  where
 } from '@angular/fire/firestore';
+
 import { Observable } from 'rxjs';
 import { Receta } from '../models/receta';
 
@@ -17,7 +23,9 @@ import { Receta } from '../models/receta';
   providedIn: 'root'
 })
 export class RecetaService {
-  private readonly firestore: Firestore = inject(Firestore);
+
+  private firestore = inject(Firestore);
+  // private readonly firestore: Firestore = inject(Firestore);
   private readonly injector: Injector = inject(Injector);
 
   // Obtener las recetas del feed público global
@@ -180,4 +188,56 @@ async actualizarReceta(id: string, recetaData: Partial<Receta>, uid: string): Pr
       await deleteDoc(publicaRef).catch(() => {});
     });
   }
-}
+
+  // 1. Alternar Favorito (Agregar / Quitar)
+// async toggleFavorito(recetaId: string, uid: string, esFavorito: boolean): Promise<void> {
+//   // ATENCIÓN: Usar 'recetas_publicas' para que coincida con tus reglas de Firestore
+//   const recetaRef = doc(this.firestore, `recetas_publicas/${recetaId}`);
+
+//   if (esFavorito) {
+//     await updateDoc(recetaRef, {
+//       favoritosPor: arrayRemove(uid)
+//     });
+//   } else {
+//     await updateDoc(recetaRef, {
+//       favoritosPor: arrayUnion(uid)
+//     });
+//   }
+// }
+async toggleFavorito(recetaId: string, uid: string, esFavorito: boolean): Promise<void> {
+    const recetaRef = doc(this.firestore, `recetas_publicas/${recetaId}`);
+    if (esFavorito) {
+      await updateDoc(recetaRef, { favoritosPor: arrayRemove(uid) });
+    } else {
+      await updateDoc(recetaRef, { favoritosPor: arrayUnion(uid) });
+    }
+  }
+// Obtener mis recetas favoritas (usando onSnapshot para evitar conflictos de instancia)
+  getMisFavoritos(uid: string): Observable<Receta[]> {
+    return new Observable<Receta[]>(subscriber => {
+      let unsubscribe: Unsubscribe;
+
+      runInInjectionContext(this.injector, () => {
+        const publicasRef = collection(this.firestore, 'recetas_publicas');
+        const q = query(publicasRef, where('favoritosPor', 'array-contains', uid));
+
+        unsubscribe = onSnapshot(
+          q,
+          snapshot => {
+            const recetas = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            })) as Receta[];
+
+            subscriber.next(recetas);
+          },
+          error => subscriber.error(error)
+        );
+      });
+
+      return () => {
+        if (unsubscribe) unsubscribe();
+      };
+    });
+  }
+  }

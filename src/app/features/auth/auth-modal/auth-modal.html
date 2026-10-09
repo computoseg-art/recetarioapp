@@ -1,0 +1,53 @@
+<div class="auth-modal-backdrop">
+  <div class="auth-modal-card">
+
+    <div *ngIf="modo === 'opciones'">
+      <h3>Bienvenido a Recetario</h3>
+      <p class="subtitle">Elige cómo deseas iniciar sesión</p>
+
+      <button (click)="$event.stopPropagation(); onLoginGoogle()" class="btn-google">
+        Continuar con Google
+      </button>
+
+      <div class="divider"><span>o</span></div>
+
+      <button (click)="$event.stopPropagation(); modo = 'email-login'" class="btn-outline">
+        Usar Correo y Contraseña
+      </button>
+    </div>
+
+    <div *ngIf="modo === 'email-login' || modo === 'email-registro'">
+      <h3>{{ modo === 'email-login' ? 'Iniciar Sesión' : 'Crear Cuenta' }}</h3>
+
+      <div *ngIf="errorMessage" class="error-alert">{{ errorMessage }}</div>
+
+      <form [formGroup]="loginForm" (ngSubmit)="$event.stopPropagation(); onSubmitEmail()">
+        <div class="form-group" (click)="$event.stopPropagation()">
+          <label>Correo electrónico</label>
+          <input formControlName="email" type="email" placeholder="correo@ejemplo.com" />
+        </div>
+
+        <div class="form-group" (click)="$event.stopPropagation()">
+          <label>Contraseña</label>
+          <input formControlName="password" type="password" placeholder="••••••" />
+        </div>
+
+        <button type="submit" [disabled]="loginForm.invalid || cargando" class="btn-primary">
+          {{ cargando ? 'Procesando...' : (modo === 'email-login' ? 'Entrar' : 'Registrarse') }}
+        </button>
+      </form>
+
+      <div class="switch-mode">
+        <p *ngIf="modo === 'email-login'">
+          ¿No tienes cuenta? <a (click)="$event.stopPropagation(); modo = 'email-registro'">Regístrate</a>
+        </p>
+        <p *ngIf="modo === 'email-registro'">
+          ¿Ya tienes cuenta? <a (click)="$event.stopPropagation(); modo = 'email-login'">Inicia sesión</a>
+        </p>
+      </div>
+
+      <button (click)="$event.stopPropagation(); modo = 'opciones'" class="btn-back">← Volver</button>
+    </div>
+
+  </div>
+</div>

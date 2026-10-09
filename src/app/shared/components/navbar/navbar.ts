@@ -6,6 +6,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { AuthService } from '../../../core/services/auth';
+import { AuthModalComponent } from '../../../features/auth/auth-modal/auth-modal';
+import { MatDivider } from '@angular/material/divider'; //
 
 @Component({
   selector: 'app-navbar',
@@ -17,8 +19,11 @@ import { AuthService } from '../../../core/services/auth';
     MatToolbarModule,
     MatButtonModule,
     MatIconModule,
-    MatMenuModule
-  ],
+    MatMenuModule,
+    AuthModalComponent //
+    ,
+    MatDivider
+],
   templateUrl: './navbar.html',
   styleUrl: './navbar.scss'
 })
@@ -26,20 +31,25 @@ export class NavbarComponent {
   authService = inject(AuthService);
   private router = inject(Router);
 
-  // Observable que emite el usuario de Firebase o null si no está logueado
   user$ = this.authService.user$;
 
-  loginConGoogle(): void {
-    this.authService.loginConGoogle().then(() => {
-      this.router.navigate(['/']);
-    }).catch(error => {
-      console.error('Error al iniciar sesión:', error);
-    });
+  // Bandera para mostrar u ocultar el modal
+  mostrarModalAuth = false;
+
+  abrirModalLogin(): void {
+    this.mostrarModalAuth = true;
   }
 
   logout(): void {
     this.authService.logout().then(() => {
-      this.router.navigate(['/login']);
+      this.router.navigate(['/']);
     });
+  }
+
+  cerrarModalSiEsFondo(event: MouseEvent): void {
+    // Si el objetivo del clic es exactamente el fondo oscuro y no la tarjeta blanca, se cierra
+    if ((event.target as HTMLElement).classList.contains('auth-modal-backdrop')) {
+      this.mostrarModalAuth = false;
+    }
   }
 }

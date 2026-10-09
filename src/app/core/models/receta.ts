@@ -10,4 +10,5 @@ export interface Receta {
   imagenUrl?: string;
   usuarioId?: string; // ID del usuario dueño de la receta
   esPublica?: boolean; // true = visible para todos, false = solo para el dueño
+  favoritosPor?: string[];
 }

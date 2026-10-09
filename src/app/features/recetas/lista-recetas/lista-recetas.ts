@@ -1,4 +1,5 @@
 import { Component, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { AsyncPipe } from '@angular/common';
 import { Observable, take } from 'rxjs';
 import { RecetaService } from '../../../core/services/receta';
@@ -15,7 +16,8 @@ import { MatButtonModule } from '@angular/material/button';
     AsyncPipe,
     RecetaCard,
     MatProgressSpinnerModule,
-    MatButtonModule
+    MatButtonModule,
+    CommonModule
   ],
   templateUrl: './lista-recetas.html',
   styleUrl: './lista-recetas.scss'
@@ -23,6 +25,8 @@ import { MatButtonModule } from '@angular/material/button';
 export class ListaRecetas {
   private recetaService = inject(RecetaService);
   private authService = inject(AuthService);
+
+  user$ = this.authService.user$;
 
   recetas$: Observable<Receta[]> = this.recetaService.getRecetasPublicas();
 

@@ -1,16 +1,17 @@
 <div class="container">
   <div class="header-actions">
     <h2>Explorar Recetas</h2>
-    <button mat-flat-button color="accent" (click)="crearRecetaDemo()">
-      + Receta de Prueba
-    </button>
   </div>
 
   @if (recetas$ | async; as recetas) {
     @if (recetas.length > 0) {
       <div class="grid-recetas">
         @for (receta of recetas; track receta.id) {
-          <app-receta-card [receta]="receta"></app-receta-card>
+          <!-- <app-receta-card [receta]="receta"></app-receta-card> -->
+          <app-receta-card
+            [receta]="receta"
+            [usuarioActualId]="(user$ | async)?.uid || null">
+          </app-receta-card>
         }
       </div>
     } @else {
