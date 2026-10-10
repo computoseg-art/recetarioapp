@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule, AsyncPipe } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -7,7 +7,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { AuthService } from '../../../core/services/auth';
 import { AuthModalComponent } from '../../../features/auth/auth-modal/auth-modal';
-import { MatDivider } from '@angular/material/divider'; //
+import { MatDivider } from '@angular/material/divider';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-navbar',
@@ -20,21 +21,32 @@ import { MatDivider } from '@angular/material/divider'; //
     MatButtonModule,
     MatIconModule,
     MatMenuModule,
-    AuthModalComponent //
-    ,
+    AuthModalComponent,
     MatDivider
-],
+  ],
   templateUrl: './navbar.html',
   styleUrl: './navbar.scss'
 })
-export class NavbarComponent {
+export class NavbarComponent implements OnInit, OnDestroy {
   authService = inject(AuthService);
   private router = inject(Router);
+  private userSub?: Subscription;
 
   user$ = this.authService.user$;
-
-  // Bandera para mostrar u ocultar el modal
   mostrarModalAuth = false;
+
+  ngOnInit(): void {
+    // Cerramos el modal automáticamente tan pronto como el usuario inicie sesión
+    this.userSub = this.user$.subscribe(user => {
+      if (user) {
+        this.mostrarModalAuth = false;
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.userSub?.unsubscribe();
+  }
 
   abrirModalLogin(): void {
     this.mostrarModalAuth = true;
@@ -47,7 +59,6 @@ export class NavbarComponent {
   }
 
   cerrarModalSiEsFondo(event: MouseEvent): void {
-    // Si el objetivo del clic es exactamente el fondo oscuro y no la tarjeta blanca, se cierra
     if ((event.target as HTMLElement).classList.contains('auth-modal-backdrop')) {
       this.mostrarModalAuth = false;
     }

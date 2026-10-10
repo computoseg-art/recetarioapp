@@ -1,7 +1,9 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../../core/services/auth';
+import { Router } from '@angular/router';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-auth-modal',
@@ -10,11 +12,12 @@ import { AuthService } from '../../../core/services/auth';
   templateUrl: './auth-modal.html',
   styleUrl: './auth-modal.scss'
 })
-export class AuthModalComponent {
+export class AuthModalComponent implements OnInit, OnDestroy {
   private fb = inject(FormBuilder);
   private authService = inject(AuthService);
+  private router = inject(Router);
+  private userSub?: Subscription;
 
-  // Controla qué vista se muestra: 'opciones', 'email-login' o 'email-registro'
   modo: 'opciones' | 'email-login' | 'email-registro' = 'opciones';
 
   loginForm: FormGroup = this.fb.group({
@@ -25,15 +28,34 @@ export class AuthModalComponent {
   cargando = false;
   errorMessage = '';
 
+  ngOnInit(): void {
+    // Si el usuario cambia y ya está logueado, cerramos el modal automáticamente
+    this.userSub = this.authService.user$.subscribe(user => {
+      if (user) {
+        // Buscamos si el modal está abierto en el DOM para cerrarlo o disparamos navegación
+        this.cerrarModalAutomaticamente();
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.userSub?.unsubscribe();
+  }
+
+  private cerrarModalAutomaticamente(): void {
+    // Si manejas la visibilidad del modal desde el padre (Navbar),
+    // puedes emitir un evento o cerrar la vista directamente si el componente se destruye al loguear.
+  }
+
   async onLoginGoogle() {
     try {
       this.cargando = true;
+      this.errorMessage = '';
       await this.authService.loginConGoogle();
-      // Cierra el modal o recarga según tu estructura
-      window.location.reload();
+      // El modal se cerrará automáticamente al detectarse el usuario activo
     } catch (error) {
       console.error('Error con Google:', error);
-    } finally {
+      this.errorMessage = 'No se pudo iniciar sesión con Google.';
       this.cargando = false;
     }
   }
@@ -51,11 +73,9 @@ export class AuthModalComponent {
       } else {
         await this.authService.registro(email, password);
       }
-      window.location.reload();
     } catch (error: any) {
       console.error('Error de autenticación:', error);
       this.errorMessage = 'Credenciales inválidas o el correo ya está registrado.';
-    } finally {
       this.cargando = false;
     }
   }

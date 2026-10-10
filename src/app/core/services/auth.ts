@@ -8,9 +8,10 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   signInWithRedirect,
-  getRedirectResult
+  getRedirectResult,
+  onAuthStateChanged
 } from '@angular/fire/auth';
-import { Observable } from 'rxjs';
+import { BehaviorSubject, Observable } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -21,64 +22,87 @@ export class AuthService {
   private injector: Injector = inject(Injector);
   private zone: NgZone = inject(NgZone);
 
-  // Observable global con el estado del usuario
-  user$: Observable<any> = user(this.auth);
+  private currentUserSubject = new BehaviorSubject<any>(null);
+  user$: Observable<any> = this.currentUserSubject.asObservable();
 
   constructor() {
+    console.log('[AuthService] Inicializando servicio de autenticación...');
+
+    runInInjectionContext(this.injector, () => {
+      onAuthStateChanged(this.auth, (user) => {
+        console.log('[AuthService] onAuthStateChanged disparado:', user ? `Usuario logueado: ${user.email}` : 'No hay usuario activo');
+        this.zone.run(() => {
+          this.currentUserSubject.next(user);
+        });
+      });
+    });
+
     this.procesarResultadoRedireccion();
   }
 
   private async procesarResultadoRedireccion(): Promise<void> {
+    console.log('[AuthService] Verificando getRedirectResult() (retorno de móvil)...');
     try {
       const result = await runInInjectionContext(this.injector, () => getRedirectResult(this.auth));
       if (result?.user) {
-        console.log('Usuario autenticado con éxito tras redirección:', result.user);
-        // Ejecutamos dentro de NgZone para asegurar que la vista de Angular se actualice
+        console.log('[AuthService] ✅ ¡Redirect exitoso! Usuario recuperado:', result.user);
         this.zone.run(() => {
-          // Si tienes algún Signal, Subject o redirección adicional, agrégala aquí
+          this.currentUserSubject.next(result.user);
         });
+      } else {
+        console.log('[AuthService] getRedirectResult() no devolvió usuario (es una carga normal o popup).');
       }
     } catch (error) {
-      console.error('Error al procesar el resultado de la redirección:', error);
+      console.error('[AuthService] ❌ Error crítico en getRedirectResult():', error);
     }
   }
 
-  // Registro con Correo y Contraseña
   registro(email: string, pass: string) {
+    console.log('[AuthService] Intentando registro por email:', email);
     return runInInjectionContext(this.injector, () =>
       createUserWithEmailAndPassword(this.auth, email, pass)
     );
   }
 
-  // Login con Correo y Contraseña
   login(email: string, pass: string) {
+    console.log('[AuthService] Intentando login por email:', email);
     return runInInjectionContext(this.injector, () =>
       signInWithEmailAndPassword(this.auth, email, pass)
     );
   }
 
-  // Login con Google
   async loginConGoogle(): Promise<void> {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({
       prompt: 'select_account'
     });
 
-    const esMovil = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    console.log('[AuthService] Ejecutando signInWithPopup (compatible con móviles modernos)...');
 
     return runInInjectionContext(this.injector, () => {
-      if (esMovil) {
-        return signInWithRedirect(this.auth, provider);
-      } else {
-        return signInWithPopup(this.auth, provider).then(() => {});
-      }
+      return signInWithPopup(this.auth, provider).then((result) => {
+        if (result?.user) {
+          console.log('[AuthService] Popup de Google exitoso:', result.user.email);
+          this.zone.run(() => {
+            this.currentUserSubject.next(result.user);
+          });
+        }
+      }).catch((error) => {
+        console.error('[AuthService] ❌ Error en signInWithPopup:', error);
+        throw error;
+      });
     });
   }
 
-  // Cerrar Sesión
   logout() {
+    console.log('[AuthService] Cerrando sesión...');
     return runInInjectionContext(this.injector, () =>
-      signOut(this.auth)
+      signOut(this.auth).then(() => {
+        console.log('[AuthService] Sesión cerrada correctamente.');
+        this.zone.run(() => {
+          this.currentUserSubject.next(null);
+        });
+      })
     );
   }
 }
