@@ -28,12 +28,17 @@ body {
   // Set a default background, font and text colors for the application using
   // Angular Material's system-level CSS variables. Learn more about these
   // variables at https://material.angular.dev/guide/system-variables
-  background-color: var(--mat-sys-surface);
+  background-color: #faf8f2;
+  background-image:
+    radial-gradient(ellipse at 8% 12%, rgba(188, 207, 157, 0.2), transparent 34%),
+    radial-gradient(ellipse at 92% 82%, rgba(232, 190, 133, 0.18), transparent 36%),
+    linear-gradient(135deg, #fcfaf5 0%, #f5f0e5 100%);
+  background-attachment: fixed;
   color: var(--mat-sys-on-surface);
   font: var(--mat-sys-body-medium);
 
   // Reset the user agent margin.
   margin: 0;
-  height: 100%;
+  min-height: 100vh;
 }
 /* You can add global styles to this file, and also import other style files */

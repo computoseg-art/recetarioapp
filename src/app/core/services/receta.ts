@@ -204,39 +204,74 @@ async actualizarReceta(id: string, recetaData: Partial<Receta>, uid: string): Pr
 //     });
 //   }
 // }
-async toggleFavorito(recetaId: string, uid: string, esFavorito: boolean): Promise<void> {
-    const recetaRef = doc(this.firestore, `recetas_publicas/${recetaId}`);
-    if (esFavorito) {
-      await updateDoc(recetaRef, { favoritosPor: arrayRemove(uid) });
-    } else {
-      await updateDoc(recetaRef, { favoritosPor: arrayUnion(uid) });
+  async toggleFavorito(receta: Receta, uid: string, esFavorito: boolean): Promise<void> {
+    if (!receta.id) {
+      throw new Error('No se puede actualizar el favorito de una receta sin ID.');
     }
+
+    return runInInjectionContext(this.injector, async () => {
+      const publicaRef = doc(this.firestore, 'recetas_publicas', receta.id!);
+      const publicaSnap = await getDoc(publicaRef);
+      const recetaRef = publicaSnap.exists()
+        ? publicaRef
+        : doc(this.firestore, 'usuarios', receta.usuarioId ?? uid, 'recetas', receta.id!);
+      const cambios = esFavorito
+        ? { favoritosPor: arrayRemove(uid) }
+        : { favoritosPor: arrayUnion(uid) };
+
+      await updateDoc(recetaRef, cambios);
+    });
   }
 // Obtener mis recetas favoritas (usando onSnapshot para evitar conflictos de instancia)
   getMisFavoritos(uid: string): Observable<Receta[]> {
     return new Observable<Receta[]>(subscriber => {
-      let unsubscribe: Unsubscribe;
+      let unsubscribePublicas: Unsubscribe | undefined;
+      let unsubscribePrivadas: Unsubscribe | undefined;
+      let favoritasPublicas: Receta[] = [];
+      let favoritasPrivadas: Receta[] = [];
+
+      const emitirFavoritos = (): void => {
+        const recetasPorId = new Map<string, Receta>();
+        [...favoritasPrivadas, ...favoritasPublicas].forEach(receta => {
+          if (receta.id) recetasPorId.set(receta.id, receta);
+        });
+        subscriber.next([...recetasPorId.values()]);
+      };
 
       runInInjectionContext(this.injector, () => {
         const publicasRef = collection(this.firestore, 'recetas_publicas');
-        const q = query(publicasRef, where('favoritosPor', 'array-contains', uid));
+        const publicasQuery = query(publicasRef, where('favoritosPor', 'array-contains', uid));
+        const privadasRef = collection(this.firestore, 'usuarios', uid, 'recetas');
+        const privadasQuery = query(privadasRef, where('favoritosPor', 'array-contains', uid));
 
-        unsubscribe = onSnapshot(
-          q,
+        unsubscribePublicas = onSnapshot(
+          publicasQuery,
           snapshot => {
-            const recetas = snapshot.docs.map(doc => ({
+            favoritasPublicas = snapshot.docs.map(doc => ({
               id: doc.id,
               ...doc.data()
             })) as Receta[];
+            emitirFavoritos();
+          },
+          error => subscriber.error(error)
+        );
 
-            subscriber.next(recetas);
+        unsubscribePrivadas = onSnapshot(
+          privadasQuery,
+          snapshot => {
+            favoritasPrivadas = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            })) as Receta[];
+            emitirFavoritos();
           },
           error => subscriber.error(error)
         );
       });
 
       return () => {
-        if (unsubscribe) unsubscribe();
+        unsubscribePublicas?.();
+        unsubscribePrivadas?.();
       };
     });
   }

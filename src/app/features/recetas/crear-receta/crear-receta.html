@@ -51,11 +51,39 @@
           </mat-form-field>
         </div>
 
-        <!-- URL de Imagen -->
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>URL de la imagen (Opcional)</mat-label>
-          <input matInput formControlName="imagenUrl" placeholder="https://ejemplo.com/imagen.jpg" />
-        </mat-form-field>
+        <!-- URL de Imagen o Cámara -->
+        <div class="imagen-seccion full-width" style="margin-bottom: 20px;">
+          <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <mat-form-field appearance="outline" style="flex: 1;">
+              <mat-label>URL de la imagen (O usa la cámara)</mat-label>
+              <input matInput formControlName="imagenUrl" placeholder="https://ejemplo.com/imagen.jpg" />
+            </mat-form-field>
+
+            <button
+              type="button"
+              mat-stroked-button
+              color="primary"
+              (click)="sacarFotoYSubir()"
+              [disabled]="subiendoImagen"
+              style="height: 56px; white-space: nowrap;">
+              <mat-icon *ngIf="!subiendoImagen">photo_camera</mat-icon>
+              <mat-spinner diameter="22" *ngIf="subiendoImagen"></mat-spinner>
+              {{ subiendoImagen ? 'Subiendo...' : 'Sacar Foto' }}
+            </button>
+          </div>
+
+          <!-- Previsualización de la imagen capturada o cargada -->
+          @if (imagenPrevisualizacion || recetaForm.get('imagenUrl')?.value) {
+            <div style="text-align: center; margin-top: 8px; border: 1px dashed #ccc; padding: 10px; border-radius: 8px;">
+              <p style="font-size: 12px; color: #666; margin-bottom: 8px;">Vista previa de la imagen:</p>
+              <img 
+                [src]="imagenPrevisualizacion || recetaForm.get('imagenUrl')?.value" 
+                alt="Previsualización" 
+                style="max-height: 180px; max-width: 100%; border-radius: 6px; object-fit: cover;" 
+              />
+            </div>
+          }
+        </div>
 
         <!-- Ingredientes dinámicos -->
         <div class="ingredientes-container" formArrayName="ingredientes">
@@ -101,9 +129,9 @@
 
         <!-- Botones de Acción -->
         <div class="actions">
-          <button mat-flat-button color="primary" type="submit">
-            Guardar Receta
-          </button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="recetaForm.invalid">
+          Guardar Receta
+        </button>
         </div>
 
       </form>

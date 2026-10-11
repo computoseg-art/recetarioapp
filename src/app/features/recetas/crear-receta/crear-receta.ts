@@ -6,7 +6,11 @@ import { take } from 'rxjs/operators';
 
 import { RecetaService } from '../../../core/services/receta';
 import { AuthService } from '../../../core/services/auth';
+import { StorageService } from '../../../core/services/storage'; // <--- 1. Importar StorageService
 import { Receta } from '../../../core/models/receta';
+
+// <--- 2. Importar Capacitor Camera
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -15,6 +19,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner'; // <--- Para el spinner de carga
 
 @Component({
   selector: 'app-crear-receta',
@@ -29,7 +34,8 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
     MatSelectModule,
     MatButtonModule,
     MatIconModule,
-    MatSlideToggleModule
+    MatSlideToggleModule,
+    MatProgressSpinnerModule
   ],
   templateUrl: './crear-receta.html',
   styleUrl: './crear-receta.scss'
@@ -38,9 +44,13 @@ export class CrearReceta {
   private fb = inject(FormBuilder);
   private recetaService = inject(RecetaService);
   private authService = inject(AuthService);
+  private storageService = inject(StorageService); // <--- Inyectar StorageService
   private router = inject(Router);
 
   categorias: string[] = ['Desayuno', 'Almuerzo', 'Cena', 'Postre', 'Snack'];
+
+  subiendoImagen = false; // Estado de carga de la foto
+  imagenPrevisualizacion: string | null = null; // Para mostrar la foto localmente al instante
 
   recetaForm: FormGroup = this.fb.group({
     titulo: ['', [Validators.required, Validators.minLength(3)]],
@@ -50,7 +60,7 @@ export class CrearReceta {
     porciones: [2, [Validators.required, Validators.min(1)]],
     imagenUrl: [''],
     instrucciones: ['', Validators.required],
-    esPublica: [false], // Control para visibilidad
+    esPublica: [false],
     ingredientes: this.fb.array([this.crearIngredienteControl()])
   });
 
@@ -74,7 +84,40 @@ export class CrearReceta {
     }
   }
 
-  guardarReceta(): void {
+async sacarFotoYSubir(): Promise<void> {
+  try {
+    const image = await Camera.getPhoto({
+      quality: 60,              // Compresión moderada para que suba rápido
+      width: 800,               
+      height: 800,              
+      allowEditing: true,
+      resultType: CameraResultType.DataUrl,
+      source: CameraSource.Camera
+    });
+
+    if (image.dataUrl) {
+      this.subiendoImagen = true;
+      this.imagenPrevisualizacion = image.dataUrl; // Vista previa local inmediata
+
+      // Subimos a ImgBB y obtenemos la URL web limpia
+      const urlDescarga = await this.storageService.subirImagenBase64(image.dataUrl);
+
+      // Inyectamos la URL en el formulario de la receta
+      this.recetaForm.patchValue({ imagenUrl: urlDescarga });
+      console.log('Imagen subida con éxito, URL:', urlDescarga);
+    }
+  } catch (error: any) {
+    console.error('Error con la cámara o la subida:', error);
+    if (error.message !== 'User cancelled photos app') {
+      alert('No se pudo procesar la foto.');
+    }
+    this.imagenPrevisualizacion = null;
+  } finally {
+    this.subiendoImagen = false;
+  }
+}
+
+guardarReceta(): void {
   if (this.recetaForm.invalid) {
     this.recetaForm.markAllAsTouched();
     return;
@@ -105,10 +148,15 @@ export class CrearReceta {
       esPublica: !!formValue.esPublica
     };
 
-    // Pasa la receta y el UID del usuario
-    this.recetaService.agregarReceta(nuevaReceta, user.uid).then(() => {
-      this.router.navigate(['/']);
-    });
+    // Añadimos .catch() para ver qué error exacto arroja Firestore en la consola
+    this.recetaService.agregarReceta(nuevaReceta, user.uid)
+      .then(() => {
+        this.router.navigate(['/']);
+      })
+      .catch((error) => {
+        console.error('Error al guardar la receta en Firestore:', error);
+        alert('Hubo un error al guardar la receta. Es probable que la imagen sea demasiado pesada.');
+      });
   });
 }
 }

@@ -80,7 +80,7 @@ export class RecetaCard {
 
     try {
       await this.recetaService.toggleFavorito(
-        this.receta.id,
+        this.receta,
         uid,
         estadoAnterior
       );
