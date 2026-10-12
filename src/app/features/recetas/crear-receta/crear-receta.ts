@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -11,6 +11,7 @@ import { Receta } from '../../../core/models/receta';
 
 // <--- 2. Importar Capacitor Camera
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { ImageCropperComponent, ImageCroppedEvent } from 'ngx-image-cropper';
 
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -35,12 +36,13 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner'; /
     MatButtonModule,
     MatIconModule,
     MatSlideToggleModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    ImageCropperComponent
   ],
   templateUrl: './crear-receta.html',
   styleUrl: './crear-receta.scss'
 })
-export class CrearReceta {
+export class CrearReceta implements OnDestroy {
   private fb = inject(FormBuilder);
   private recetaService = inject(RecetaService);
   private authService = inject(AuthService);
@@ -49,8 +51,11 @@ export class CrearReceta {
 
   categorias: string[] = ['Desayuno', 'Almuerzo', 'Cena', 'Postre', 'Snack'];
 
-  subiendoImagen = false; // Estado de carga de la foto
-  imagenPrevisualizacion: string | null = null; // Para mostrar la foto localmente al instante
+  subiendoImagen = false;
+  archivoParaRecortar: File | null = null;
+  imagenRecortada: Blob | null = null;
+  imagenPrevisualizacion: string | null = null;
+  private imagenPrevisualizacionObjectUrl: string | null = null;
 
   recetaForm: FormGroup = this.fb.group({
     titulo: ['', [Validators.required, Validators.minLength(3)]],
@@ -84,41 +89,109 @@ export class CrearReceta {
     }
   }
 
-async sacarFotoYSubir(): Promise<void> {
-  try {
-    const image = await Camera.getPhoto({
-      quality: 60,              // Compresión moderada para que suba rápido
-      width: 800,               
-      height: 800,              
-      allowEditing: true,
-      resultType: CameraResultType.DataUrl,
-      source: CameraSource.Camera
-    });
+  async sacarFotoYSubir(): Promise<void> {
+    this.subiendoImagen = true;
+    try {
+      const image = await Camera.getPhoto({
+        quality: 55,
+        width: 600,
+        height: 450,
+        allowEditing: true,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera
+      });
 
-    if (image.dataUrl) {
-      this.subiendoImagen = true;
-      this.imagenPrevisualizacion = image.dataUrl; // Vista previa local inmediata
+      if (!image.dataUrl) {
+        throw new Error('La cámara no devolvió una imagen.');
+      }
 
-      // Subimos a ImgBB y obtenemos la URL web limpia
-      const urlDescarga = await this.storageService.subirImagenBase64(image.dataUrl);
-
-      // Inyectamos la URL en el formulario de la receta
-      this.recetaForm.patchValue({ imagenUrl: urlDescarga });
-      console.log('Imagen subida con éxito, URL:', urlDescarga);
+      const imagen = await fetch(image.dataUrl).then(response => response.blob());
+      await this.subirImagen(imagen);
+    } catch (error) {
+      console.error('Error al tomar o subir la foto:', error);
+      if (!this.esCancelacion(error)) {
+        alert('No se pudo procesar la foto. Inténtalo de nuevo.');
+      }
+    } finally {
+      this.subiendoImagen = false;
     }
-  } catch (error: any) {
-    console.error('Error con la cámara o la subida:', error);
-    if (error.message !== 'User cancelled photos app') {
-      alert('No se pudo procesar la foto.');
-    }
-    this.imagenPrevisualizacion = null;
-  } finally {
-    this.subiendoImagen = false;
   }
-}
+
+  seleccionarImagen(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const archivo = input.files?.[0];
+    if (!archivo) return;
+
+    input.value = '';
+    if (!archivo.type.startsWith('image/')) {
+      alert('Selecciona un archivo de imagen válido.');
+      return;
+    }
+
+    this.archivoParaRecortar = archivo;
+    this.imagenRecortada = null;
+  }
+
+  guardarImagenRecortada(): void {
+    if (!this.imagenRecortada || this.subiendoImagen) return;
+
+    this.subiendoImagen = true;
+    this.subirImagen(this.imagenRecortada)
+      .then(() => this.cancelarRecorte())
+      .catch(error => {
+        console.error('Error al subir la imagen recortada:', error);
+        alert('No se pudo subir la imagen. Inténtalo de nuevo.');
+      })
+      .finally(() => {
+        this.subiendoImagen = false;
+      });
+  }
+
+  alRecortarImagen(event: ImageCroppedEvent): void {
+    this.imagenRecortada = event.blob ?? null;
+  }
+
+  cancelarRecorte(): void {
+    this.archivoParaRecortar = null;
+    this.imagenRecortada = null;
+  }
+
+  falloCargaRecorte(): void {
+    this.cancelarRecorte();
+    alert('No se pudo abrir esta imagen para recortarla.');
+  }
+
+  private async subirImagen(imagen: Blob): Promise<void> {
+    const vistaPreviaAnterior = this.imagenPrevisualizacion;
+    const objectUrlAnterior = this.imagenPrevisualizacionObjectUrl;
+    const objectUrlNuevo = URL.createObjectURL(imagen);
+    this.imagenPrevisualizacion = objectUrlNuevo;
+    this.imagenPrevisualizacionObjectUrl = objectUrlNuevo;
+
+    try {
+      const urlDescarga = await this.storageService.subirImagen(imagen);
+      this.recetaForm.patchValue({ imagenUrl: urlDescarga });
+      if (objectUrlAnterior) URL.revokeObjectURL(objectUrlAnterior);
+    } catch (error) {
+      URL.revokeObjectURL(objectUrlNuevo);
+      this.imagenPrevisualizacion = vistaPreviaAnterior;
+      this.imagenPrevisualizacionObjectUrl = objectUrlAnterior;
+      throw error;
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.imagenPrevisualizacionObjectUrl) {
+      URL.revokeObjectURL(this.imagenPrevisualizacionObjectUrl);
+    }
+  }
+
+  private esCancelacion(error: unknown): boolean {
+    return error instanceof Error && error.message.toLowerCase().includes('cancel');
+  }
 
 guardarReceta(): void {
-  if (this.recetaForm.invalid) {
+  if (this.recetaForm.invalid || this.subiendoImagen || this.archivoParaRecortar) {
     this.recetaForm.markAllAsTouched();
     return;
   }

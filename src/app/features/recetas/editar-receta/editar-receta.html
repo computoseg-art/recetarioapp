@@ -47,10 +47,92 @@
             </mat-form-field>
           </div>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>URL de la imagen</mat-label>
-            <input matInput formControlName="imagenUrl" />
-          </mat-form-field>
+          <div class="imagen-seccion">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>URL de la imagen (opcional)</mat-label>
+              <input matInput formControlName="imagenUrl" placeholder="https://ejemplo.com/imagen.jpg" />
+            </mat-form-field>
+
+            <input
+              #archivoImagen
+              class="input-archivo"
+              type="file"
+              accept="image/*"
+              (change)="seleccionarImagen($event)" />
+
+            <div class="imagen-acciones">
+              <button
+                type="button"
+                mat-stroked-button
+                color="primary"
+                (click)="sacarFotoYSubir()"
+                [disabled]="subiendoImagen || !!archivoParaRecortar">
+                <mat-icon>photo_camera</mat-icon>
+                Cambiar con cámara
+              </button>
+              <button
+                type="button"
+                mat-stroked-button
+                color="primary"
+                (click)="archivoImagen.click()"
+                [disabled]="subiendoImagen || !!archivoParaRecortar">
+                <mat-icon>upload</mat-icon>
+                Subir una foto
+              </button>
+              @if (subiendoImagen) {
+                <mat-spinner diameter="24" aria-label="Subiendo imagen"></mat-spinner>
+              }
+            </div>
+
+            @if (archivoParaRecortar) {
+              <section class="recorte-seccion" aria-label="Recortar foto seleccionada">
+                <p class="recorte-ayuda">Ajusta el encuadre arrastrando la imagen y luego confirma el recorte.</p>
+                <image-cropper
+                  class="recortador"
+                  [imageFile]="archivoParaRecortar"
+                  [maintainAspectRatio]="true"
+                  [aspectRatio]="4 / 3"
+                  [resizeToWidth]="600"
+                  [onlyScaleDown]="true"
+                  [imageQuality]="65"
+                  format="jpeg"
+                  output="blob"
+                  (imageCropped)="alRecortarImagen($event)"
+                  (loadImageFailed)="falloCargaRecorte()">
+                </image-cropper>
+                <div class="recorte-acciones">
+                  <button
+                    type="button"
+                    mat-button
+                    (click)="cancelarRecorte()"
+                    [disabled]="subiendoImagen">
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    mat-flat-button
+                    color="primary"
+                    (click)="guardarImagenRecortada()"
+                    [disabled]="!imagenRecortada || subiendoImagen">
+                    @if (subiendoImagen) {
+                      Subiendo...
+                    } @else {
+                      Usar esta foto
+                    }
+                  </button>
+                </div>
+              </section>
+            }
+
+            @if (imagenPrevisualizacion || recetaForm.get('imagenUrl')?.value) {
+              <div class="imagen-preview">
+                <p>Vista previa:</p>
+                <img
+                  [src]="imagenPrevisualizacion || recetaForm.get('imagenUrl')?.value"
+                  alt="Vista previa de la receta" />
+              </div>
+            }
+          </div>
 
           <div class="ingredientes-container" formArrayName="ingredientes">
             <h3>Ingredientes</h3>
@@ -89,7 +171,7 @@
           </div>
 
           <div class="actions">
-            <button mat-flat-button color="primary" type="submit">
+            <button mat-flat-button color="primary" type="submit" [disabled]="recetaForm.invalid || subiendoImagen || !!archivoParaRecortar">
               Guardar Cambios
             </button>
           </div>

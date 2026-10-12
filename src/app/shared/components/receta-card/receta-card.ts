@@ -28,6 +28,7 @@ import { toSignal } from '@angular/core/rxjs-interop'; // <--- Para leer el usua
 export class RecetaCard {
   @Input({ required: true }) receta!: Receta;
   @Input() usuarioActualId: string | null = null; // Opcional por compatibilidad
+  @Input() modoCompacto = false;
 
   private recetaService = inject(RecetaService);
   private authService = inject(AuthService); // <--- Inyectar AuthService

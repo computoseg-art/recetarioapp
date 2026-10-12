@@ -1,10 +1,12 @@
-<mat-card class="receta-card" appearance="outlined">
+<mat-card class="receta-card" [class.compacta]="modoCompacto" appearance="outlined">
   <img
     mat-card-image
     [src]="imagenUrlSanitizada"
     [alt]="receta.titulo"
     (error)="manejarErrorImagen($event)"
     class="card-img"
+    loading="lazy"
+    decoding="async"
   />
   <mat-card-header>
     <mat-card-title>{{ receta.titulo }}</mat-card-title>

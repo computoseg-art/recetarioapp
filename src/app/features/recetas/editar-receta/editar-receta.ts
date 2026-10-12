@@ -1,12 +1,15 @@
-import { ChangeDetectorRef, Component, inject, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { take } from 'rxjs/operators';
+import { firstValueFrom, take } from 'rxjs';
 
 import { RecetaService } from '../../../core/services/receta';
 import { AuthService } from '../../../core/services/auth';
+import { StorageService } from '../../../core/services/storage';
 import { Receta } from '../../../core/models/receta';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { ImageCropperComponent, ImageCroppedEvent } from 'ngx-image-cropper';
 
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -31,22 +34,29 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
     MatButtonModule,
     MatIconModule,
     MatSlideToggleModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    ImageCropperComponent
   ],
   templateUrl: './editar-receta.html',
   styleUrl: './editar-receta.scss'
 })
-export class EditarReceta implements OnInit {
+export class EditarReceta implements OnInit, OnDestroy {
   private cdr = inject(ChangeDetectorRef);
   private fb = inject(FormBuilder);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private recetaService = inject(RecetaService);
   private authService = inject(AuthService);
+  private storageService = inject(StorageService);
 
 
   recetaId: string = '';
   cargando: boolean = true;
+  subiendoImagen = false;
+  archivoParaRecortar: File | null = null;
+  imagenRecortada: Blob | null = null;
+  imagenPrevisualizacion: string | null = null;
+  private imagenPrevisualizacionObjectUrl: string | null = null;
   categorias: string[] = ['Desayuno', 'Almuerzo', 'Cena', 'Postre', 'Snack'];
 
   recetaForm: FormGroup = this.fb.group({
@@ -67,62 +77,49 @@ export class EditarReceta implements OnInit {
 
 ngOnInit(): void {
     this.recetaId = this.route.snapshot.paramMap.get('id') || '';
-    console.log('>>> [Componente] ngOnInit iniciado. ID de ruta:', this.recetaId);
 
     if (!this.recetaId) {
-      console.log('>>> [Componente] No hay ID, redirigiendo...');
       this.cargando = false;
       this.router.navigate(['/']);
       return;
     }
 
-    console.log('>>> [Componente] Suscribiéndose a authService.user$...');
-    this.authService.user$.pipe(take(1)).subscribe({
-      next: (user) => {
-        console.log('>>> [Componente] Usuario emitido por authService:', user?.uid);
+    const uidProvider = () =>
+      firstValueFrom(this.authService.user$.pipe(take(1)))
+        .then(user => user?.uid);
 
-        this.recetaService.getRecetaPorId(this.recetaId, user?.uid)
-          .then((receta: Receta) => {
-            console.log('>>> [Componente] Receta obtenida con éxito:', receta);
+    this.recetaService.getRecetaPorId(this.recetaId, undefined, uidProvider)
+      .then((receta: Receta) => {
+        this.recetaForm.patchValue({
+          titulo: receta.titulo,
+          descripcion: receta.descripcion,
+          categoria: receta.categoria,
+          tiempoPreparacionMinutos: receta.tiempoPreparacionMinutos,
+          porciones: receta.porciones,
+          imagenUrl: receta.imagenUrl,
+          instrucciones: receta.instrucciones,
+          esPublica: receta.esPublica
+        });
 
-            this.recetaForm.patchValue({
-              titulo: receta.titulo,
-              descripcion: receta.descripcion,
-              categoria: receta.categoria,
-              tiempoPreparacionMinutos: receta.tiempoPreparacionMinutos,
-              porciones: receta.porciones,
-              imagenUrl: receta.imagenUrl,
-              instrucciones: receta.instrucciones,
-              esPublica: receta.esPublica
-            });
-
-            this.ingredientes.clear();
-            if (receta.ingredientes && Array.isArray(receta.ingredientes)) {
-              receta.ingredientes.forEach((ing: unknown) => {
-                const textoIng = typeof ing === 'string'
-                  ? ing
-                  : (ing && typeof ing === 'object' && 'nombre' in ing) ? (ing as { nombre: string }).nombre : '';
-                this.ingredientes.push(this.fb.group({ texto: [textoIng, Validators.required] }));
-              });
-            }
-          })
-          .catch((error: unknown) => {
-            console.error('>>> [Componente] Error en promesa getRecetaPorId:', error);
-            alert('No se pudo encontrar la receta.');
-            this.router.navigate(['/']);
-          })
-      .finally(() => {
-            console.log('>>> [Componente] Bloque finally ejecutado. Apagando spinner.');
-            this.cargando = false;
-            this.cdr.detectChanges(); // Fuerza a Angular a repintar la vista y ocultar el spinner
+        this.ingredientes.clear();
+        if (receta.ingredientes && Array.isArray(receta.ingredientes)) {
+          receta.ingredientes.forEach((ing: unknown) => {
+            const textoIng = typeof ing === 'string'
+              ? ing
+              : (ing && typeof ing === 'object' && 'nombre' in ing) ? (ing as { nombre: string }).nombre : '';
+            this.ingredientes.push(this.fb.group({ texto: [textoIng, Validators.required] }));
           });
-      },
-      error: (err) => {
-        console.error('>>> [Componente] Error en observable de usuario:', err);
-        this.cargando = false;
+        }
+      })
+      .catch((error: unknown) => {
+        console.error('No se pudo cargar la receta para editar:', error);
+        alert('No se pudo encontrar la receta.');
         this.router.navigate(['/']);
-      }
-    });
+      })
+      .finally(() => {
+        this.cargando = false;
+        this.cdr.detectChanges();
+      });
   }
 
 
@@ -142,8 +139,109 @@ ngOnInit(): void {
     }
   }
 
+  async sacarFotoYSubir(): Promise<void> {
+    this.subiendoImagen = true;
+    try {
+      const image = await Camera.getPhoto({
+        quality: 55,
+        width: 600,
+        height: 450,
+        allowEditing: true,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera
+      });
+
+      if (!image.dataUrl) {
+        throw new Error('La cámara no devolvió una imagen.');
+      }
+
+      const imagen = await fetch(image.dataUrl).then(response => response.blob());
+      await this.subirImagen(imagen);
+    } catch (error) {
+      console.error('Error al tomar o subir la foto:', error);
+      if (!this.esCancelacion(error)) {
+        alert('No se pudo procesar la foto. Inténtalo de nuevo.');
+      }
+    } finally {
+      this.subiendoImagen = false;
+    }
+  }
+
+  seleccionarImagen(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const archivo = input.files?.[0];
+    if (!archivo) return;
+
+    input.value = '';
+    if (!archivo.type.startsWith('image/')) {
+      alert('Selecciona un archivo de imagen válido.');
+      return;
+    }
+
+    this.archivoParaRecortar = archivo;
+    this.imagenRecortada = null;
+  }
+
+  guardarImagenRecortada(): void {
+    if (!this.imagenRecortada || this.subiendoImagen) return;
+
+    this.subiendoImagen = true;
+    this.subirImagen(this.imagenRecortada)
+      .then(() => this.cancelarRecorte())
+      .catch(error => {
+        console.error('Error al subir la imagen recortada:', error);
+        alert('No se pudo subir la imagen. Inténtalo de nuevo.');
+      })
+      .finally(() => {
+        this.subiendoImagen = false;
+      });
+  }
+
+  alRecortarImagen(event: ImageCroppedEvent): void {
+    this.imagenRecortada = event.blob ?? null;
+  }
+
+  cancelarRecorte(): void {
+    this.archivoParaRecortar = null;
+    this.imagenRecortada = null;
+  }
+
+  falloCargaRecorte(): void {
+    this.cancelarRecorte();
+    alert('No se pudo abrir esta imagen para recortarla.');
+  }
+
+  private async subirImagen(imagen: Blob): Promise<void> {
+    const vistaPreviaAnterior = this.imagenPrevisualizacion;
+    const objectUrlAnterior = this.imagenPrevisualizacionObjectUrl;
+    const objectUrlNuevo = URL.createObjectURL(imagen);
+    this.imagenPrevisualizacion = objectUrlNuevo;
+    this.imagenPrevisualizacionObjectUrl = objectUrlNuevo;
+
+    try {
+      const urlDescarga = await this.storageService.subirImagen(imagen);
+      this.recetaForm.patchValue({ imagenUrl: urlDescarga });
+      if (objectUrlAnterior) URL.revokeObjectURL(objectUrlAnterior);
+    } catch (error) {
+      URL.revokeObjectURL(objectUrlNuevo);
+      this.imagenPrevisualizacion = vistaPreviaAnterior;
+      this.imagenPrevisualizacionObjectUrl = objectUrlAnterior;
+      throw error;
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.imagenPrevisualizacionObjectUrl) {
+      URL.revokeObjectURL(this.imagenPrevisualizacionObjectUrl);
+    }
+  }
+
+  private esCancelacion(error: unknown): boolean {
+    return error instanceof Error && error.message.toLowerCase().includes('cancel');
+  }
+
   actualizarReceta(): void {
-    if (this.recetaForm.invalid) {
+    if (this.recetaForm.invalid || this.subiendoImagen || this.archivoParaRecortar) {
       this.recetaForm.markAllAsTouched();
       return;
     }

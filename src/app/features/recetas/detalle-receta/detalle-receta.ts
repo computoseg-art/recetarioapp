@@ -1,7 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Observable, switchMap, take } from 'rxjs';
+import { Observable, from, firstValueFrom, switchMap, take } from 'rxjs';
 import { RecetaService } from '../../../core/services/receta';
 import { AuthService } from '../../../core/services/auth';
 import { Receta } from '../../../core/models/receta';
@@ -38,10 +38,11 @@ export class DetalleReceta {
   receta$: Observable<Receta> = this.route.paramMap.pipe(
     switchMap(params => {
       const id = params.get('id') || '';
-      return this.authService.user$.pipe(
-        take(1),
-        switchMap(user => this.recetaService.getRecetaPorId(id, user?.uid))
-      );
+      const uidProvider = () =>
+        firstValueFrom(this.authService.user$.pipe(take(1)))
+          .then(user => user?.uid);
+
+      return from(this.recetaService.getRecetaPorId(id, undefined, uidProvider));
     })
   );
 

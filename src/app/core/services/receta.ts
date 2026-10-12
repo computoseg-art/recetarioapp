@@ -84,29 +84,46 @@ export class RecetaService {
     });
   }
 
-async getRecetaPorId(id: string, uid?: string): Promise<Receta> {
+async getRecetaPorId(
+  id: string,
+  uid?: string,
+  uidProvider?: () => Promise<string | undefined>
+): Promise<Receta> {
     console.log('>>> [Servicio] getRecetaPorId llamado con ID:', id, 'UID:', uid);
 
     return runInInjectionContext(this.injector, async () => {
       try {
+        const publicaRef = doc(this.firestore, 'recetas_publicas', id);
+        const publicaSnapPromise = getDoc(publicaRef);
+
         if (uid) {
-          console.log('>>> [Servicio] Buscando en subcolección privada...');
           const privadaRef = doc(this.firestore, 'usuarios', uid, 'recetas', id);
-          const privadaSnap = await getDoc(privadaRef);
+          const [privadaSnap, publicaSnap] = await Promise.all([
+            getDoc(privadaRef),
+            publicaSnapPromise
+          ]);
 
           if (privadaSnap.exists()) {
-            console.log('>>> [Servicio] ¡Encontrada en privada!');
             return { id: privadaSnap.id, ...privadaSnap.data() } as Receta;
           }
-        }
 
-        console.log('>>> [Servicio] Buscando en recetas_publicas...');
-        const publicaRef = doc(this.firestore, 'recetas_publicas', id);
-        const publicaSnap = await getDoc(publicaRef);
+          if (publicaSnap.exists()) {
+            return { id: publicaSnap.id, ...publicaSnap.data() } as Receta;
+          }
+        } else {
+          const publicaSnap = await publicaSnapPromise;
+          if (publicaSnap.exists()) {
+            return { id: publicaSnap.id, ...publicaSnap.data() } as Receta;
+          }
 
-        if (publicaSnap.exists()) {
-          console.log('>>> [Servicio] ¡Encontrada en pública!');
-          return { id: publicaSnap.id, ...publicaSnap.data() } as Receta;
+          const uidResuelto = await uidProvider?.();
+          if (uidResuelto) {
+            const privadaRef = doc(this.firestore, 'usuarios', uidResuelto, 'recetas', id);
+            const privadaSnap = await getDoc(privadaRef);
+            if (privadaSnap.exists()) {
+              return { id: privadaSnap.id, ...privadaSnap.data() } as Receta;
+            }
+          }
         }
 
         throw new Error('La receta no existe en ninguna colección.');

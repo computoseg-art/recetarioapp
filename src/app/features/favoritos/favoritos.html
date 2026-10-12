@@ -1,12 +1,13 @@
-<div class="favoritos-container" style="padding: 24px; max-width: 1200px; margin: 0 auto;">
-      <h2 style="margin-bottom: 24px;">❤️ Mis Recetas Favoritas</h2>
+<div class="favoritos-container">
+  <h2>❤️ Mis Recetas Favoritas</h2>
 
       <ng-container *ngIf="user$ | async as user; else noLogueado">
         <ng-container *ngIf="favoritos$ | async as recetas; else cargando">
-          <div *ngIf="recetas.length > 0; else sinFavoritos" class="grid-recetas" style="display: flex; gap: 20px; flex-wrap: wrap;">
+          <div *ngIf="recetas.length > 0; else sinFavoritos" class="grid-recetas">
             <app-receta-card
               *ngFor="let receta of recetas"
               [receta]="receta"
+              [modoCompacto]="true"
               [usuarioActualId]="user.uid">
             </app-receta-card>
           </div>

@@ -6,7 +6,12 @@
   @if (receta$ | async; as receta) {
     <article class="receta-detalle">
       <div class="hero-image">
-        <img [src]="receta.imagenUrl || 'https://placehold.co/800x400?text=Sin+Imagen'" [alt]="receta.titulo">
+        <img
+          [src]="receta.imagenUrl || 'https://placehold.co/800x400?text=Sin+Imagen'"
+          [alt]="receta.titulo"
+          loading="eager"
+          fetchpriority="high"
+          decoding="async">
       </div>
 
       <header class="header">
